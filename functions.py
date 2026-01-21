@@ -65,7 +65,7 @@ def read_file(file_path: str) -> str:
     '''
         Reads a given file.
         
-        This functions takes the file_path as input and reads all the contents of the file.
+        This function takes the file_path as input and reads all the contents of the file.
         
         Args:
             file_path (str): Path of the file that is to be read.
@@ -83,26 +83,54 @@ def read_file(file_path: str) -> str:
         return file_contents
     except IOError as e:
         print(f"An error occured: {e}")
+
+def write_in_file(file_path: str, content) -> bool:
+    '''
+        Writes in a give file.
+        
+        This function takes the file_path and content and writes to the file.
+        
+        Args:
+            file_path (str): Path of the file where write operation is to be performed.
+            content : The information or piece of text that is to be written
+        
+        Returns:
+            bool : Whether the write was successful or not.
+        
+        Raises:
+            IOError if something went wrong.
     
+    '''
+    
+    file = Path(file_path)
+    try:
+        file.write_text(content)
+        return True
+    except IOError as e:
+        print(f"An error has occured: {e}")
+        return False
 
 
 available_functions = {
     'create_file': create_file,
     'list_files_in_directory': list_files_in_directory,
-    'read_file': read_file
+    'read_file': read_file,
+    'write_in_file': write_in_file
 }
 
 messages = [{
     "role": "user",
-    "content": f"Create a new python file named snake.py at {current_directory} and also list all the files at the same location. Now, read the contents of the file snake.py"
+    # "content": f"Create a new python file named snake.py at {current_directory} and also list all the files at the same location. Write a function to add two numbers in to snake.py in python programming language. Now, read the contents of the file snake.py",
+    "content": f"Browse and use this directory at location: {current_directory}. I want to build a portfolio website using html, css and javascript. Create all of the required files and also write the code for my portfolio website."
+    # "content": f"Browse the current directory at location: {current_directory}. I "
 }]
 
 
 while True:
     response: ChatResponse = chat(
-        model = 'qwen3:0.6B',
+        model = 'gpt-oss:20b',
         messages = messages,
-        tools = [create_file, list_files_in_directory, read_file],
+        tools = [create_file, list_files_in_directory, read_file, write_in_file],
         think = True
     )
     
