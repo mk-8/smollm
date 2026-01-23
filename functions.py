@@ -3,6 +3,10 @@ from ollama import chat, ChatResponse
 
 current_directory = Path.cwd()
 
+def confirm_action(tool_name, arguments) -> bool:
+    print(f"Request: {tool_name} with {arguments}")
+    answer = input("Want to allow this action (yes/no)?").strip()
+    return answer in {"y", "yes"}
 
 def create_file(file_path: str, file_name: str) -> bool:
     '''
@@ -88,7 +92,7 @@ def write_in_file(file_path: str, content) -> bool:
     '''
         Writes in a give file.
         
-        This function takes the file_path and content and writes to the file.
+        This function takes the file_path and content as the parameters and writes to the file.
         
         Args:
             file_path (str): Path of the file where write operation is to be performed.
@@ -110,19 +114,54 @@ def write_in_file(file_path: str, content) -> bool:
         print(f"An error has occured: {e}")
         return False
 
+def update_in_file(file_path: str, old: str, new: str) -> bool:
+    '''
+        Updates content in a given file by replacing all occurrences of old with new.
+
+        Args:
+            file_path (str): Path of the file where update operation is to be performed.
+            old (str): The text to be replaced.
+            new (str): The replacement text.
+
+        Returns:
+            bool : Whether the update was successful or not.
+
+        Raises:
+            IOError if something went wrong.
+
+    '''
+
+    file = Path(file_path)
+    try:
+        contents = file.read_text()
+        updated = contents.replace(old, new)
+        file.write_text(updated)
+        return True
+    except IOError as e:
+        print(f"An error has occured: {e}")
+        return False
+
+
 
 available_functions = {
     'create_file': create_file,
     'list_files_in_directory': list_files_in_directory,
     'read_file': read_file,
-    'write_in_file': write_in_file
+    'write_in_file': write_in_file,
+    'update_in_file': update_in_file
+}
+
+sensitive_tools = {
+    "create_file",
+    "write_in_file",
+    "update_in_file"
 }
 
 messages = [{
     "role": "user",
     # "content": f"Create a new python file named snake.py at {current_directory} and also list all the files at the same location. Write a function to add two numbers in to snake.py in python programming language. Now, read the contents of the file snake.py",
-    "content": f"Browse and use this directory at location: {current_directory}. I want to build a portfolio website using html, css and javascript. Create all of the required files and also write the code for my portfolio website."
-    # "content": f"Browse the current directory at location: {current_directory}. I "
+    # "content": f"Browse and use this directory at location: {current_directory}. I want to build a portfolio website using html, css and javascript. Create all of the required files and also write the code for my portfolio website."
+    "content": f"Browse the current directory at location: {current_directory}. I want to add some colors to my portfolio website. so please change some code in styles.css and make it look more elegant and rich"
 }]
 
 
@@ -130,17 +169,21 @@ while True:
     response: ChatResponse = chat(
         model = 'gpt-oss:20b',
         messages = messages,
-        tools = [create_file, list_files_in_directory, read_file, write_in_file],
+        tools = [create_file, list_files_in_directory, read_file, write_in_file, update_in_file],
         think = True
     )
     
     messages.append(response.message)
-    print("Thiking: ", response.message.thinking)
+    print("Thinking: ", response.message.thinking)
     print("Content: ", response.message.content)
     
     if response.message.tool_calls:
         for tc in response.message.tool_calls:
             if tc.function.name in available_functions:
+                if tc.function.name in sensitive_tools:
+                    if not confirm_action(tc.function.name, tc.function.arguments):
+                        print("Skipping ...")
+                        continue
                 print(f"Calling {tc.function.name} with arguments {tc.function.arguments}")
                 result = available_functions[tc.function.name](**tc.function.arguments)
                 print(f"Result: {result}")
