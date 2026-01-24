@@ -1,5 +1,6 @@
 from pathlib import Path
 from ollama import chat, ChatResponse
+import os
 
 current_directory = Path.cwd()
 
@@ -143,6 +144,31 @@ def update_in_file(file_path: str, old: str, new: str) -> bool:
         print(f"An error has occured: {e}")
         return False
 
+def delete_file(file_path: str) -> bool:
+    '''
+        Deletes a given file.
+        
+        Args: 
+            file_path (str): Path of the file to perform deletion operation.
+        
+        Returns:
+            bool: Whether the file was deleted successfully or not.
+            
+        Raises:
+            IOError if something went wrong.
+    
+    '''
+
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return True
+        else:
+            print("File not found")
+            return False
+    except IOError as e:
+        print(f"An error eccured: {e}")
+        return False
 
 
 available_functions = {
@@ -150,13 +176,15 @@ available_functions = {
     'list_files_in_directory': list_files_in_directory,
     'read_file': read_file,
     'write_in_file': write_in_file,
-    'update_in_file': update_in_file
+    'update_in_file': update_in_file,
+    'delete_file' : delete_file
 }
 
 sensitive_tools = {
     "create_file",
     "write_in_file",
-    "update_in_file"
+    "update_in_file",
+    "delete_file"
 }
 
 # messages = [{
@@ -194,9 +222,9 @@ while True:
     while True:
     
         response: ChatResponse = chat(
-            model = 'gpt-oss:20b',
+            model = 'gpt-oss:20b-cloud', # gpt-oss:20b
             messages = messages,
-            tools = [create_file, list_files_in_directory, read_file, write_in_file, update_in_file],
+            tools = [create_file, list_files_in_directory, read_file, write_in_file, update_in_file, delete_file],
             think = True
         )
         
