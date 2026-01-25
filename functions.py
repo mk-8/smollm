@@ -1,6 +1,7 @@
 from pathlib import Path
 from ollama import chat, ChatResponse
 import os
+import subprocess
 
 current_directory = Path.cwd()
 
@@ -21,8 +22,8 @@ def create_file(file_path: str, file_name: str) -> bool:
             file_name (str): The name of the file that is to be created
             
         Returns: 
-            True if file is created successfully. 
-            False if file is not created successfully.
+            True: if file is created successfully. 
+            False: if file is not created successfully.
         
         Raises:
             FileExistsError: If the file already exists at given location
@@ -170,6 +171,38 @@ def delete_file(file_path: str) -> bool:
         print(f"An error eccured: {e}")
         return False
 
+def run_shell_command(command: str) -> str:
+    '''
+    Executes a shell command and returns the output.
+
+    Args:
+        command (str): The command to execute.
+
+    Returns:
+        str: The standard output and standard error combined.
+    '''
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        if result.returncode == 0:
+            return result.stdout.strip()
+        else:
+            return f"Error (Exit Code {result.returncode}):\n{result.stderr.strip()}"
+    except Exception as e:
+        return f"An error occurred: {e}"
+
+def git_status() -> str:
+    '''Checks the current status of the git repository.'''
+    return run_shell_command("git status")
+
+def git_diff() -> str:
+    '''Returns the current unstaged changes (diff).'''
+    return run_shell_command("git diff")
+
+def git_commit(message: str) -> str:
+    '''Stages all changes and creates a commit with the given message.'''
+    add_res = run_shell_command("git add .")
+    commit_res = run_shell_command(f'git commit -m "{message}"')
+    return f"Add: {add_res}\nCommit: {commit_res}"
 
 available_functions = {
     'create_file': create_file,
@@ -177,22 +210,21 @@ available_functions = {
     'read_file': read_file,
     'write_in_file': write_in_file,
     'update_in_file': update_in_file,
-    'delete_file' : delete_file
+    'delete_file' : delete_file,
+    'run_shell_command': run_shell_command,
+    'git_status': git_status,
+    'git_diff': git_diff,
+    'git_commit': git_commit
 }
 
 sensitive_tools = {
     "create_file",
     "write_in_file",
     "update_in_file",
-    "delete_file"
+    "delete_file",
+    "run_shell_command",
+    "git_commit"
 }
-
-# messages = [{
-#     "role": "user",
-#     # "content": f"Create a new python file named snake.py at {current_directory} and also list all the files at the same location. Write a function to add two numbers in to snake.py in python programming language. Now, read the contents of the file snake.py",
-#     # "content": f"Browse and use this directory at location: {current_directory}. I want to build a portfolio website using html, css and javascript. Create all of the required files and also write the code for my portfolio website."
-#     "content": f"Browse the current directory at location: {current_directory}. I want to add some colors to my portfolio website. so please change some code in styles.css and make it look more elegant and rich"
-# }]
 
 messages = [
     {
@@ -201,8 +233,10 @@ messages = [
             "You are a helpful assistant. You always perform actions at the current directory located at: "
             f"{current_directory}. Prefer concise answers. "
             "When the user asks to create, update, or delete files, you MUST call the appropriate tool "
-            "(create_file, write_in_file, update_in_file, read_file, list_files_in_directory) instead of "
-            "only describing changes or printing code. If you propose edits, apply them using tools."
+            "(create_file, write_in_file, update_in_file, read_file, list_files_in_directory, run_shell_command, git_status, git_diff, git_commit, delete_file) instead of "
+            "only describing changes or printing code. If you propose edits, apply them using tools. "
+            "IMPORTANT: After modifying any file, ALWAYS call git_diff() and show the output to the user "
+            "so they can verify the changes."
         )
     }
 ]
@@ -218,14 +252,21 @@ while True:
             "content": user_input
         }
     )
-    
+
+    # Context Management
+    # Keep system prompt and the last 20 messages
+    if len(messages) > 20:
+        # messages[0] is the system prompt
+        # messages[-20:] are the most recent interactions
+        messages = [messages[0]] + messages[-20:]
+       
     while True:
     
         response: ChatResponse = chat(
             model = 'gpt-oss:20b-cloud', # gpt-oss:20b
             messages = messages,
-            tools = [create_file, list_files_in_directory, read_file, write_in_file, update_in_file, delete_file],
-            think = True
+            tools = [create_file, list_files_in_directory, read_file, write_in_file, update_in_file, delete_file, run_shell_command, git_status, git_diff, git_commit],
+            think = False
         )
         
         messages.append(response.message)
